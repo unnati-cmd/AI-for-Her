@@ -4,6 +4,9 @@ SafeAI is an intelligent voice-enabled safety chatbot designed especially for In
 
 ---
 
+## 🎯 Objective
+SafeAI aims to enhance personal safety by combining artificial intelligence, voice technology, and real-time monitoring into a single reliable companion. It empowers users to stay protected, connected, and supported—anytime, anywhere.
+
 ## 🚀 Features
 
 ### 🎤 Voice Input (Speech-to-Text)
