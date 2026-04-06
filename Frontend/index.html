@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SafeAI Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>🌿 SafeAI</h2>
+        <nav>
+        <a id="chatTab" class="active">💬 Chat</a>
+        <a>🚨 Emergency</a>
+        <a id="locationTab">📍 Location</a>
+        <a>⚙️ Settings</a>
+        </nav>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+
+        <div class="top">
+            <h1>AI Safety Assistant</h1>
+            <p>I’m here for you. Talk freely 💬</p>
+        </div>
+
+        <!-- CHAT SECTION -->
+        <div id="chatSection">
+            <div class="chat-container">
+                <div id="userText" class="bubble user">Say something...</div>
+                <div id="botText" class="bubble bot">I'm listening 😊</div>
+            </div>
+
+            <!-- 🔴 EMERGENCY LIVE MAP (inside chat) -->
+            <div id="chatMapContainer" style="display:none; margin-top:15px;">
+            <iframe 
+                id="chatMapFrame"
+                width="100%" 
+                height="200" 
+                style="border-radius: 12px; border: none;">
+            </iframe>
+            </div>
+
+            <button id="safeBtn" class="safe-btn">Are you safe?</button>
+
+            <div class="bottom">
+                <button id="startBtn" class="mic-btn">🎤 Tap to Speak</button>
+            </div>
+        </div>
+
+        <!-- LOCATION SECTION -->
+        <div id="locationSection" style="display: none;">
+            <div id="mapContainer" style="margin-top: 20px;">
+                <iframe 
+                    id="mapFrame"
+                    width="100%" 
+                    height="250" 
+                    style="border-radius: 15px; border: none;"
+                    loading="lazy">
+                </iframe>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+<script src="script.js"></script>
+</body>
+</html>
