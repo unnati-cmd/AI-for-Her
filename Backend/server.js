@@ -3,6 +3,7 @@ import cors from "cors";
 import axios from "axios";
 import dotenv from "dotenv";
 dotenv.config({ path: "./.env" });
+import nodemailer from "nodemailer";
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,38 @@ let userProfile = {
   mood: null
 };
 
+// Emergency contact info (temporary storage)
+const emergencyContacts = [
+  {
+    name: "Richa",
+    email: "richamaitry@gmail.com"
+  },
+  {
+    name: "Naitik",
+    email: "naitikchs16@gmail.com"
+  },
+  {
+    name: "Unnati",
+    email: "unnatiald@gmail.com"
+  }
+];
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "safeai.alert@gmail.com",
+    pass: "biochdorjhaetgob"
+  }
+});
+
+transporter.verify(function(error, success) {
+  if (error) {
+    console.log("Transporter Error:", error);
+  } else {
+    console.log("Email server is ready");
+  }
+});
+
 // MAIN ROUTE
 app.post("/chat", async (req, res) => {
   try {
@@ -26,7 +59,7 @@ app.post("/chat", async (req, res) => {
 
     // Emergency detection
     const emergencyKeywords = [
-      "help", "bachao", "danger", "unsafe", "madad", "darr", "pareshani", "jabardasti", "trapped", 
+      "help", "emergency", "bachao", "peecha", "danger", "unsafe", "madad", "darr", "pareshani", "jabardasti", "trapped", 
       "attack", "save me", "scared", "follow", "kidnap"
     ];
 
@@ -81,7 +114,7 @@ Examples:
 - User: "Mujhe thoda stress ho raha hai" → Reply in Hinglish like:
   "तुम stress मत लो, I’m here with you".
   
-2. Keep replies short and clear. Maximum 1 to 2 lines.
+2. Keep replies very short and clear. Maximum 1 to 2 lines.
 3. Sound like a real caring human friend, not a bot.
 
 4. Always understand the user’s tone before replying:
@@ -92,7 +125,7 @@ Examples:
 5. PERSONALIZATION:
 - If you do not know the user’s name, politely ask their name in a natural way
 - If you know the name, use it sometimes but do not overuse
-- Occasionally ask simple human questions like:
+- Occasionally ask simple short human questions like:
   Aaj ka din kaisa tha
   Sab theek chal raha hai na
 
@@ -106,6 +139,8 @@ Examples:
 If user says things like help, bachao, danger, unsafe, someone is following me, scared, attack, save me
 
 Then:
+- Suggest to call the police and give their contact number
+- give very short, crisp and to the point reply
 - Treat it as serious emergency
 - Respond urgently but calmly
 - Tell user to go to a safe place immediately
@@ -170,6 +205,50 @@ app.post("/location", (req, res) => {
   console.log("🗺️ Map Link:", mapLink);
 
   res.json({ status: "Location received" });
+});
+
+
+
+app.post("/send-alert", async (req, res) => {
+  try {
+    console.log("SEND ALERT ROUTE HIT");
+    const { latitude, longitude } = req.body;
+
+    const mapLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+    const mailOptions = {
+      from: "safeai.alert@gmail.com",
+      to: emergencyContacts.map(contact => contact.email).join(","),
+      subject: "🚨 Emergency Alert from SafeAI",
+      text: `
+Emergency detected!
+
+User may be in danger.
+Live Location:
+${mapLink}
+
+Please check immediately.
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    console.log("✅ Emergency email sent");
+    res.json({ success: true });
+
+  } catch (error) {
+    console.log("Email Full Error:", error);
+    res.json({ success: false });
+  }
+});
+
+app.get("/emergency-contact", (req, res) => {
+  try {
+    res.json(emergencyContacts);
+  } catch (error) {
+    console.log("Emergency contact route error:", error);
+    res.status(500).json({ error: "Failed to load contact" });
+  }
 });
 
 app.listen(PORT, () => {

@@ -8,9 +8,11 @@ const mapFrame = document.getElementById("mapFrame");
 
 const chatTab = document.getElementById("chatTab");
 const locationTab = document.getElementById("locationTab");
+const emergencyTab = document.getElementById("emergencyTab");
 
 const chatSection = document.getElementById("chatSection");
 const locationSection = document.getElementById("locationSection");
+const emergencySection = document.getElementById("emergencySection");
 
 window.speechSynthesis.onvoiceschanged = () => {
   window.speechSynthesis.getVoices();
@@ -45,10 +47,13 @@ function speak(text) {
 
 safeBtn.addEventListener("click", () => {
   clearInterval(beepInterval);
+  beepCount = 0;
+  window.speechSynthesis.cancel();
   safeBtn.style.display = "none";
   stopLocationTracking();
   chatMapContainer.style.display = "none";
-  botTextDiv.innerHTML += "<br>✅ User is safe.";
+  botTextDiv.innerHTML += "<br>✅ Thank God, you are safe.";
+  speak("Thank God, you are safe.");
 });
 
 function startLocationTracking() {
@@ -94,28 +99,45 @@ function startLocationTracking() {
 }
 
 function switchTab(active) {
+  chatSection.style.display = "none";
+  locationSection.style.display = "none";
+  emergencySection.style.display = "none";
+
+  chatTab.classList.remove("active");
+  locationTab.classList.remove("active");
+  emergencyTab.classList.remove("active");
+
   if (active === "chat") {
     chatSection.style.display = "block";
-    locationSection.style.display = "none";
-
     chatTab.classList.add("active");
-    locationTab.classList.remove("active");
-  } else {
-    chatSection.style.display = "none";
-    locationSection.style.display = "block";
+  }
 
+  if (active === "location") {
+    locationSection.style.display = "block";
     locationTab.classList.add("active");
-    chatTab.classList.remove("active");
+  }
+
+  if (active === "emergency") {
+    emergencySection.style.display = "block";
+    emergencyTab.classList.add("active");
   }
 }
 
 chatTab.addEventListener("click", () => {
+  console.log("Chat clicked");
   switchTab("chat");
 });
 
 locationTab.addEventListener("click", () => {
+  console.log("Location clicked");
   switchTab("location");
   showCurrentLocation();
+});
+
+emergencyTab.addEventListener("click", () => {
+  console.log("Emergency clicked");
+  switchTab("emergency");
+  loadEmergencyContact();
 });
 
 // START LISTENING
@@ -209,13 +231,35 @@ function askAgain() {
 function triggerAlarm() {
   safeBtn.style.display = "none";
   botTextDiv.innerHTML += "<br>🚨 EMERGENCY ALERT TRIGGERED!";
-  // strong alarm
+
   const alarm = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
   alarm.loop = false;
   alarm.volume = 1.0;
   alarm.play();
-  startLocationTracking(); // ensure tracking
+
+  navigator.geolocation.getCurrentPosition((position) => {
+    fetch("http://localhost:5000/send-alert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log("Email alert sent:", data);
+    })
+    .catch(err => {
+      console.log("Email alert failed:", err);
+    });
+  });
+
+  startLocationTracking();
 }
+
 
 // SOUND FUNCTION
 function playBeep(isAlarm = false) {
@@ -240,14 +284,20 @@ function showCurrentLocation() {
     alert("Geolocation not supported");
     return;
   }
+
   navigator.geolocation.getCurrentPosition(
     (position) => {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
       const mapURL = `https://www.google.com/maps?q=${lat},${lon}&z=15&output=embed`;
-      mapFrame.src = mapURL;
+      if (mapFrame) {
+        mapFrame.src = mapURL;
+      } else {
+        console.log("mapFrame not found");
+      }
     },
-    () => {
+    (error) => {
+      console.log("Location permission denied", error);
       alert("Location permission denied");
     }
   );
@@ -259,4 +309,27 @@ function stopLocationTracking() {
     watchId = null;
     console.log("🛑 Location tracking stopped");
   }
+}
+
+function loadEmergencyContact() {
+  fetch("http://localhost:5000/emergency-contact")
+    .then(res => res.json())
+    .then(data => {
+      const emergencySection = document.getElementById("emergencySection");
+
+      emergencySection.innerHTML = `
+        <h2>🚨 Emergency Contacts</h2>
+      `;
+
+      data.forEach(contact => {
+        emergencySection.innerHTML += `
+          <p><strong>Name:</strong> ${contact.name}</p>
+          <p><strong>Email:</strong> ${contact.email}</p>
+          <hr>
+        `;
+      });
+    })
+    .catch(err => {
+      console.log("Failed to load emergency contacts", err);
+    });
 }

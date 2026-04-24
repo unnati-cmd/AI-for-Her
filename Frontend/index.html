@@ -14,7 +14,7 @@
         <h2>🌿 SafeAI</h2>
         <nav>
         <a id="chatTab" class="active">💬 Chat</a>
-        <a>🚨 Emergency</a>
+        <a id="emergencyTab">🚨 Emergency</a>
         <a id="locationTab">📍 Location</a>
         <a>⚙️ Settings</a>
         </nav>
@@ -63,6 +63,12 @@
                     loading="lazy">
                 </iframe>
             </div>
+        </div>
+        <div id="emergencySection" style="display:none;">
+            <h2>🚨 Emergency Contact</h2>
+            
+            <p><strong>Name:</strong> <span id="contactName"></span></p>
+            <p><strong>Email:</strong> <span id="contactEmail"></span></p>
         </div>
     </div>
 
