@@ -60,7 +60,7 @@ app.post("/chat", async (req, res) => {
     // Emergency detection
     const emergencyKeywords = [
       "help", "emergency", "bachao", "peecha", "danger", "unsafe", "madad", "darr", "pareshani", "jabardasti", "trapped", 
-      "attack", "save me", "scared", "follow", "kidnap"
+      "attack", "save me", "scared", "follow", "kidnap", "help me","please help","i am scared","someone is following me","save me","i am in danger"
     ];
 
     const isEmergency = emergencyKeywords.some(word =>

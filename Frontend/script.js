@@ -13,6 +13,7 @@ const emergencyTab = document.getElementById("emergencyTab");
 const chatSection = document.getElementById("chatSection");
 const locationSection = document.getElementById("locationSection");
 const emergencySection = document.getElementById("emergencySection");
+let waitingForSafetyResponse = false;
 
 window.speechSynthesis.onvoiceschanged = () => {
   window.speechSynthesis.getVoices();
@@ -163,6 +164,19 @@ function startAssistant() {
     if (!event.results[0].isFinal) return;
     try {
       const speech = event.results[0][0].transcript;
+      if (waitingForSafetyResponse) {
+        const reply = speech.toLowerCase();
+
+        if (reply.includes("i am safe") || reply.includes("safe")) {
+          clearInterval(beepInterval);
+          waitingForSafetyResponse = false;
+          stopLocationTracking();
+
+          botTextDiv.innerHTML += "<br>✅ Thank God, you are safe.";
+          speak("Thank God, you are safe.");
+          return;
+        }
+      }
       recognition.stop();
       isListening = false;
       userTextDiv.innerHTML = "🧑 " + speech;
@@ -196,12 +210,17 @@ function startAssistant() {
   };
   recognition.onend = function () {
     isListening = false;
+  // restart listening automatically
+    setTimeout(() => {
+      startAssistant();
+    }, 1000);
   };
 }
 
 
 // HANDLE EMERGENCY
 function handleEmergency() {
+  waitingForSafetyResponse = true;
   safeBtn.style.display = "block";
   botTextDiv.innerHTML += "<br>⚠️ Are you safe? Please respond.";
   beepCount = 0;
@@ -229,6 +248,7 @@ function askAgain() {
 
 // FINAL ALERT
 function triggerAlarm() {
+  waitingForSafetyResponse = false;
   safeBtn.style.display = "none";
   botTextDiv.innerHTML += "<br>🚨 EMERGENCY ALERT TRIGGERED!";
 
@@ -333,3 +353,7 @@ function loadEmergencyContact() {
       console.log("Failed to load emergency contacts", err);
     });
 }
+
+window.onload = () => {
+  startAssistant();
+};
