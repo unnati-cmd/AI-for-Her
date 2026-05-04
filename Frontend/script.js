@@ -15,6 +15,13 @@ const locationSection = document.getElementById("locationSection");
 const emergencySection = document.getElementById("emergencySection");
 let waitingForSafetyResponse = false;
 
+const beepSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+beepSound.volume = 1.0;
+const alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+alarmSound.volume = 1.0;
+
+let recognition = null;
+
 window.speechSynthesis.onvoiceschanged = () => {
   window.speechSynthesis.getVoices();
 };
@@ -27,23 +34,47 @@ const safeBtn = document.getElementById("safeBtn");
 let isListening = false;
 let isSpeaking = false;
 
+
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+
+  const dummy = new Audio();
+  dummy.src = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg";
+  dummy.volume = 0;
+  dummy.play().then(() => {
+    dummy.pause();
+    audioUnlocked = true;
+    console.log("🔓 Audio unlocked");
+  }).catch(() => {});
+}
+
 startBtn.addEventListener("click", startAssistant);
 
 function speak(text) {
+  if (!window.speechSynthesis) return;
+
   window.speechSynthesis.cancel();
+
   const utterance = new SpeechSynthesisUtterance(text);
-  let voices = window.speechSynthesis.getVoices();
-  const indianVoice =
+
+  const voices = speechSynthesis.getVoices();
+  utterance.voice =
     voices.find(v => v.lang === "en-IN") ||
     voices.find(v => v.lang === "hi-IN") ||
-    voices.find(v => v.name.toLowerCase().includes("google")) ||
-    voices.find(v => v.name.toLowerCase().includes("male")) ||
     voices[0];
-  utterance.voice = indianVoice;
+
   utterance.rate = 1;
   utterance.pitch = 1;
   utterance.volume = 1;
-  window.speechSynthesis.speak(utterance);
+
+  isSpeaking = true;
+
+  utterance.onend = () => {
+    isSpeaking = false;
+  };
+
+  speechSynthesis.speak(utterance);
 }
 
 safeBtn.addEventListener("click", () => {
@@ -143,79 +174,94 @@ emergencyTab.addEventListener("click", () => {
 
 // START LISTENING
 function startAssistant() {
-  // Stop bot if speaking (interrupt)
-  window.speechSynthesis.cancel();
-  isSpeaking = false;
-  if (isListening) return;
-  isListening = true;
+  // if (isListening || isSpeaking) return;
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     alert("Use Chrome browser");
     return;
   }
-  const recognition = new SpeechRecognition();
+
+  recognition = new SpeechRecognition();
   recognition.lang = "en-IN";
   recognition.continuous = false;
   recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  recognition.start();
+
+  isListening = true;
   userTextDiv.innerHTML = "🎧 Listening...";
+  recognition.start();
+
   recognition.onresult = async function (event) {
-    if (!event.results[0].isFinal) return;
-    try {
-      const speech = event.results[0][0].transcript;
-      if (waitingForSafetyResponse) {
-        const reply = speech.toLowerCase();
+    // 🔥 INTERRUPT BOT SPEECH
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      isSpeaking = false;
+      console.log("🛑 Bot interrupted by user");
+    }
 
-        if (reply.includes("i am safe") || reply.includes("safe")) {
-          clearInterval(beepInterval);
-          waitingForSafetyResponse = false;
-          stopLocationTracking();
+    const speech = event.results[0][0].transcript;
 
-          botTextDiv.innerHTML += "<br>✅ Thank God, you are safe.";
-          speak("Thank God, you are safe.");
-          return;
-        }
+    recognition.stop();
+    isListening = false;
+
+    userTextDiv.innerHTML = "🧑 " + speech;
+
+    // ✅ SAFETY RESPONSE CHECK
+    if (waitingForSafetyResponse) {
+      const reply = speech.toLowerCase();
+
+      if (reply.includes("safe")) {
+        clearInterval(beepInterval);
+        waitingForSafetyResponse = false;
+        stopLocationTracking();
+
+        botTextDiv.innerHTML += "<br>✅ Thank God, you are safe.";
+        speak("Thank God, you are safe.");
+        return;
       }
-      recognition.stop();
-      isListening = false;
-      userTextDiv.innerHTML = "🧑 " + speech;
-      botTextDiv.innerHTML = "🤖 Thinking...";
-      // Backend call
-      const response = await fetch("http://localhost:5000/chat", {
+    }
+
+    botTextDiv.innerHTML = "🤖 Thinking...";
+
+    try {
+      const res = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ message: speech })
       });
-      const data = await response.json();
-      const reply = (data.reply || "No response").replace(/\s+/g, " ").trim();      
+
+      const data = await res.json();
+      const reply = data.reply;
+
       botTextDiv.innerHTML = "🤖 " + reply;
+
+      // 🔥 SPEAK FIRST, THEN RESTART MIC
       speak(reply);
-      // Emergency detected
+
       if (data.emergency) {
         handleEmergency();
         startLocationTracking();
       }
-    } catch (error) {
-      console.log("Frontend Error:", error.message);
+
+    } catch (err) {
       botTextDiv.innerHTML = "❌ Error";
-      isListening = false;
     }
   };
+
   recognition.onerror = function () {
     botTextDiv.innerHTML = "❌ Mic error";
     isListening = false;
   };
+
   recognition.onend = function () {
     isListening = false;
-  // restart listening automatically
     setTimeout(() => {
-      startAssistant();
-    }, 1000);
-  };
-}
+    startAssistant();
+    }, 300);
+  }
+};
 
 
 // HANDLE EMERGENCY
@@ -227,10 +273,8 @@ function handleEmergency() {
   beepInterval = setInterval(() => {
     beepCount++;
     botTextDiv.innerHTML += `<br>⚠️ Attempt ${beepCount}: Are you safe?`;
-    // play beep
-    const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-    audio.volume = 1.0;
-    audio.play();
+    beepSound.currentTime = 0;
+    beepSound.play().catch(err => console.log("Beep error:", err));
     // show location in chat
     chatMapContainer.style.display = "block";
     if (beepCount >= 5) {
@@ -248,14 +292,14 @@ function askAgain() {
 
 // FINAL ALERT
 function triggerAlarm() {
+  alarmSound.currentTime = 0;
+  alarmSound.play().catch(() => {});
   waitingForSafetyResponse = false;
   safeBtn.style.display = "none";
   botTextDiv.innerHTML += "<br>🚨 EMERGENCY ALERT TRIGGERED!";
 
-  const alarm = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
-  alarm.loop = false;
-  alarm.volume = 1.0;
-  alarm.play();
+  alarmSound.currentTime = 0;
+  alarmSound.play().catch(err => console.log("Alarm error:", err));
 
   navigator.geolocation.getCurrentPosition((position) => {
     fetch("http://localhost:5000/send-alert", {
@@ -357,3 +401,5 @@ function loadEmergencyContact() {
 window.onload = () => {
   startAssistant();
 };
+
+document.body.addEventListener("click", unlockAudio, { once: true });
